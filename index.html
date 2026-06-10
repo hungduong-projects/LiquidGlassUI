@@ -1,0 +1,931 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- ============ SEO ============ -->
+    <title>Liquid Glass UI | Apple-style liquid glass &amp; glassmorphism for the web</title>
+    <meta
+      name="description"
+      content="Open-source liquid glass for the web. One dependency-free HTML file: a WebGL refraction shader with live tuning sliders plus CSS glassmorphism component recipes. MIT licensed."
+    />
+    <meta
+      name="keywords"
+      content="liquid glass, glassmorphism, webgl shader, backdrop-filter, apple liquid glass, glass ui, css glass effect, frosted glass"
+    />
+    <meta name="author" content="hungduong-projects" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://hungduong-projects.github.io/LiquidGlassUI/" />
+    <meta name="theme-color" content="#10241f" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%23010205'/%3E%3Cpolygon%20points='16,5%2027,16%2016,27%205,16'%20fill='%232997ff'/%3E%3Cpolygon%20points='16,12%2020,16%2016,20%2012,16'%20fill='%23010205'/%3E%3C/svg%3E"
+    />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Liquid Glass UI | Apple-style liquid glass for the web" />
+    <meta
+      property="og:description"
+      content="A WebGL refraction shader with live tuning sliders plus CSS glassmorphism component recipes. One HTML file, zero dependencies, MIT."
+    />
+    <meta property="og:url" content="https://hungduong-projects.github.io/LiquidGlassUI/" />
+    <meta property="og:image" content="https://hungduong-projects.github.io/LiquidGlassUI/og.png" />
+    <meta property="og:site_name" content="Liquid Glass UI" />
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Liquid Glass UI | Apple-style liquid glass for the web" />
+    <meta
+      name="twitter:description"
+      content="A WebGL refraction shader with live tuning sliders plus CSS glassmorphism component recipes. One HTML file, zero dependencies, MIT."
+    />
+    <meta name="twitter:image" content="https://hungduong-projects.github.io/LiquidGlassUI/og.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareSourceCode",
+        "name": "Liquid Glass UI",
+        "description": "Open-source liquid glass for the web: a WebGL refraction shader with live tuning sliders plus CSS glassmorphism component recipes in one dependency-free HTML file.",
+        "codeRepository": "https://github.com/hungduong-projects/LiquidGlassUI",
+        "programmingLanguage": ["HTML", "CSS", "JavaScript", "GLSL"],
+        "license": "https://opensource.org/licenses/MIT",
+        "url": "https://hungduong-projects.github.io/LiquidGlassUI/"
+      }
+    </script>
+
+    <style>
+      /* ============================================================
+         1. DESIGN TOKENS
+         ============================================================ */
+      :root {
+        --ink: #fff;
+        --ink-rgb: 255, 255, 255;
+        --glass-fill-a: 0.1;
+        --glass-edge-a: 0.3;
+        --glass-sat: 1.2;
+        --glass-fill: rgba(255, 255, 255, var(--glass-fill-a));
+        --glass-edge: rgba(255, 255, 255, var(--glass-edge-a));
+        --glass-inner-fill: rgba(var(--ink-rgb), 0.08);
+        --glass-inner-edge: rgba(var(--ink-rgb), 0.35);
+        --glass-blur: 22px;
+        --shadow-depth: 0 24px 60px rgba(0, 0, 0, 0.22);
+        --shadow-rim: inset 0 1px 0 rgba(255, 255, 255, 0.32);
+        --radius-lg: 26px;
+        --radius-md: 16px;
+        --radius-pill: 999px;
+        --accent: #2997ff; /* apple.com link blue */
+        --font: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+          "Segoe UI", "Helvetica Neue", sans-serif;
+      }
+
+      /* ============================================================
+         2. BASE
+         ============================================================ */
+      * { box-sizing: border-box; }
+      html, body {
+        margin: 0;
+        background: #10241f;
+        font-family: var(--font);
+        color: var(--ink);
+      }
+      a { color: inherit; }
+      button {
+        font-family: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      a:focus-visible,
+      button:focus-visible,
+      input:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        border-radius: 6px;
+      }
+
+      /* ============================================================
+         3. BACKDROP CANVAS (WebGL: draws backdrop AND the glass slab)
+         ============================================================ */
+      #glcanvas {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+      }
+
+      /* ============================================================
+         4. GLASS RECIPES
+         .glass       : CSS glassmorphism frame (backdrop-filter)
+         .glass-inner : flat translucent layer, never nested blur
+         ============================================================ */
+      .glass {
+        background: var(--glass-fill);
+        border: 1px solid var(--glass-edge);
+        box-shadow: var(--shadow-depth), var(--shadow-rim);
+        backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-sat));
+        border-radius: var(--radius-lg);
+      }
+      .glass-inner {
+        border: 1px solid var(--glass-inner-edge);
+        background: var(--glass-inner-fill);
+      }
+      @media (prefers-reduced-transparency: reduce) {
+        .glass {
+          background: rgba(8, 10, 20, 0.94);
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+        }
+      }
+
+      /* ============================================================
+         5. NAV
+         ============================================================ */
+      #nav {
+        position: fixed;
+        top: 18px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        padding: 10px 12px 10px 20px;
+        border-radius: var(--radius-pill);
+        font-size: 13px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      #nav .brand { font-weight: 800; }
+      #nav .brand .gem { color: var(--accent); }
+      #nav a {
+        text-decoration: none;
+        opacity: 0.85;
+        transition: opacity 0.15s;
+        padding: 10px 2px;
+      }
+      #nav a:hover { opacity: 1; }
+      #nav .star {
+        border-radius: var(--radius-pill);
+        padding: 10px 14px;
+        opacity: 1;
+      }
+      #nav .star:hover { background: rgba(var(--ink-rgb), 0.16); }
+
+      /* ============================================================
+         6. STAGE LAYOUT (bento of glass frames)
+         ============================================================ */
+      #stage {
+        position: relative;
+        z-index: 2;
+        min-height: 100dvh;
+        display: grid;
+        grid-template-columns: minmax(320px, 430px) minmax(320px, 400px) minmax(260px, 300px);
+        justify-content: center;
+        align-items: center;
+        align-content: center;
+        gap: 22px;
+        padding: 96px 4vw 110px;
+      }
+      .stack { display: grid; gap: 18px; }
+
+      /* ============================================================
+         7. HERO PANEL (CSS glassmorphism frame)
+         ============================================================ */
+      #panel { padding: 34px 36px 30px; }
+      #panel h1 {
+        margin: 0 0 12px;
+        font-size: clamp(30px, 3vw, 44px);
+        font-weight: 800;
+        line-height: 1.08;
+        letter-spacing: -0.02em;
+      }
+      #panel h1 em {
+        font-style: normal;
+        background: linear-gradient(100deg, #2997ff, #8e5cf7 55%, #ff2d92);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        color: transparent;
+      }
+      #panel p {
+        margin: 0 0 16px;
+        font-size: 15px;
+        line-height: 1.6;
+        font-weight: 500;
+        opacity: 0.95;
+        max-width: 52ch;
+      }
+      .pill {
+        display: inline-block;
+        border-radius: var(--radius-pill);
+        padding: 7px 14px;
+        font-size: 12px;
+        font-weight: 700;
+        margin: 0 6px 8px 0;
+      }
+      .actions { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        min-height: 44px;
+        border-radius: var(--radius-pill);
+        padding: 11px 22px;
+        font-size: 14px;
+        font-weight: 800;
+        text-decoration: none;
+        transition: background 0.15s, transform 0.15s;
+      }
+      .btn:hover { transform: translateY(-1px); }
+      .btn:active { transform: translateY(0) scale(0.98); }
+      .btn-primary {
+        background: rgba(var(--ink-rgb), 0.92);
+        color: #010205;
+        border: 1px solid transparent;
+      }
+      .btn-primary:hover { background: #fff; }
+      .btn-ghost:hover { background: rgba(var(--ink-rgb), 0.16); }
+
+      /* ============================================================
+         8. LIQUID GLASS CARD (WebGL shader frame)
+         The slab is drawn by the shader BEHIND this div; the div
+         has no background, it only carries content and position.
+         ============================================================ */
+      #cardWrap { display: flex; justify-content: center; }
+      #card {
+        width: clamp(300px, 100%, 380px);
+        max-width: 100%;
+        padding: 26px 24px 22px;
+        border-radius: 34px;
+        color: var(--ink);
+        user-select: none;
+        -webkit-user-select: none;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      #card h2 {
+        margin: 0 0 6px;
+        font-size: 28px;
+        font-weight: 800;
+        text-align: center;
+        letter-spacing: -0.01em;
+      }
+      #card p {
+        margin: 0 0 16px;
+        font-size: 13px;
+        line-height: 1.45;
+        text-align: center;
+        font-weight: 600;
+        opacity: 0.95;
+      }
+      .tile-row { display: flex; gap: 10px; }
+      .tile {
+        flex: 1;
+        border-radius: var(--radius-md);
+        padding: 12px 4px 10px;
+        text-align: center;
+      }
+      .tile .num { font-size: 21px; font-weight: 800; }
+      .tile .lbl { font-size: 11px; font-weight: 700; opacity: 0.92; margin-top: 2px; }
+
+      /* ============================================================
+         9. PROTOTYPE FRAMES (music player, controls)
+         ============================================================ */
+      .frame-label {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 10px;
+      }
+
+      /* music player */
+      #player { padding: 18px 20px; }
+      #player .row { display: flex; align-items: center; gap: 12px; }
+      #player .art {
+        width: 52px;
+        height: 52px;
+        border-radius: 13px;
+        background: linear-gradient(135deg, #2997ff, #8e5cf7 55%, #ff2d92);
+        flex: none;
+      }
+      #player .song { font-size: 14px; font-weight: 800; }
+      #player .artist { font-size: 12px; font-weight: 600; opacity: 0.82; }
+      #player .bar {
+        height: 6px;
+        border-radius: 99px;
+        margin: 14px 0 12px;
+        overflow: hidden;
+      }
+      #player .bar i {
+        display: block;
+        height: 100%;
+        width: 64%;
+        background: rgba(var(--ink-rgb), 0.85);
+        border-radius: 99px;
+      }
+      #player .pctl { display: flex; justify-content: center; gap: 10px; }
+      #player .pctl button {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        font-size: 14px;
+        display: grid;
+        place-items: center;
+        transition: background 0.15s;
+      }
+      #player .pctl button:hover { background: rgba(var(--ink-rgb), 0.18); }
+
+      /* control centre */
+      #controls { padding: 18px 20px; }
+      #controls .crow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 13px;
+        font-weight: 700;
+        margin-bottom: 12px;
+      }
+      .switch {
+        width: 51px;
+        height: 31px;
+        border-radius: 99px;
+        position: relative;
+        transition: background 0.2s;
+        border: 1px solid var(--glass-inner-edge);
+        background: var(--glass-inner-fill);
+        padding: 0;
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 25px;
+        height: 25px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.2s;
+      }
+      .switch.on { background: var(--accent); border-color: transparent; }
+      .switch.on::after { transform: translateX(20px); }
+      #controls input[type="range"] {
+        width: 100%;
+        height: 24px;
+        margin: 2px 0 0;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      /* ============================================================
+         10. FRAME TUNER (sliders drive shader uniforms + CSS live)
+         ============================================================ */
+      #tuner {
+        position: fixed;
+        right: 22px;
+        bottom: 22px;
+        z-index: 8;
+        width: 238px;
+        padding: 18px 20px 14px;
+        border-radius: 22px;
+      }
+      #tuner .ctl-title { font-size: 15px; font-weight: 800; margin: 0 0 10px; }
+      #tuner .ctl-group {
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 14px 0 9px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      #tuner .ctl-title + .ctl-group {
+        margin-top: 4px;
+        padding-top: 0;
+        border-top: none;
+      }
+      #tuner label {
+        display: grid;
+        grid-template-columns: 56px 1fr 28px;
+        align-items: center;
+        gap: 10px;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        opacity: 0.9;
+        margin-bottom: 9px;
+      }
+      #tuner .val {
+        font-size: 11px;
+        font-weight: 700;
+        text-align: right;
+        opacity: 0.78;
+        font-variant-numeric: tabular-nums;
+      }
+      #tuner input[type="range"] {
+        width: 100%;
+        height: 24px;
+        margin: 0;
+        accent-color: var(--accent);
+        cursor: pointer;
+      }
+
+      /* ============================================================
+         11. TOAST (bottom-left note)
+         ============================================================ */
+      #toast {
+        position: fixed;
+        left: 22px;
+        bottom: 22px;
+        z-index: 8;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        max-width: 320px;
+        padding: 14px 18px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+      #toast .ticon {
+        font-size: 20px;
+        color: var(--accent);
+        flex: none;
+      }
+      #toast b { font-weight: 800; }
+
+      /* ============================================================
+         12. MOTION (staggered load reveal only; nothing drifts)
+         ============================================================ */
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(14px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+      @keyframes riseNav {
+        from { opacity: 0; transform: translate(-50%, 14px); }
+        to { opacity: 1; transform: translate(-50%, 0); }
+      }
+      #nav { animation: riseNav 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+      #panel { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.12s both; }
+      #cardWrap { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.24s both; }
+      .stack { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.36s both; }
+      #tuner, #toast { animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.48s both; }
+      @media (prefers-reduced-motion: reduce) {
+        #nav, #panel, #cardWrap, .stack, #tuner, #toast { animation: none; }
+      }
+
+      /* ============================================================
+         13. RESPONSIVE
+         ============================================================ */
+      /* Reserve a right gutter so the centered bento never slides under
+         the fixed tuner (only floats above 880px). */
+      @media (min-width: 881px) {
+        #stage { padding-right: 290px; }
+      }
+      @media (max-width: 1180px) {
+        #stage {
+          grid-template-columns: minmax(300px, 430px) minmax(300px, 400px);
+          padding-bottom: 320px; /* room for fixed tuner */
+        }
+        .stack { grid-column: 1 / -1; grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 880px) {
+        #stage {
+          grid-template-columns: min(88vw, 420px);
+          padding: 92px 0 40px;
+        }
+        .stack { grid-column: auto; grid-template-columns: 1fr; }
+        #tuner {
+          position: static;
+          width: 100%;
+          margin: 0;
+        }
+        #toast { display: none; }
+      }
+      @media (max-width: 480px) {
+        #panel { padding: 26px 24px 24px; }
+        #nav { gap: 14px; padding: 8px 10px 8px 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="glcanvas" aria-hidden="true"></canvas>
+
+    <nav id="nav" class="glass" aria-label="Primary">
+      <span class="brand"><span class="gem">◈</span> Liquid Glass UI</span>
+      <a href="https://github.com/hungduong-projects/LiquidGlassUI#readme">Docs</a>
+      <a class="star glass-inner" href="https://github.com/hungduong-projects/LiquidGlassUI">★ Star on GitHub</a>
+    </nav>
+
+    <main id="stage">
+      <!-- Frame 1: CSS glassmorphism hero panel -->
+      <section id="panel" class="glass">
+        <h1>Liquid Glass. <em>For the web.</em></h1>
+        <p>
+          Open-source glass in one dependency-free HTML file. A WebGL shader that
+          bends light like real glass (centre card), plus CSS glassmorphism recipes
+          for every other frame on this page. Tune optics, shape and blur live,
+          bottom right.
+        </p>
+        <span class="pill glass-inner">backdrop-filter</span>
+        <span class="pill glass-inner">WebGL refraction</span>
+        <span class="pill glass-inner">0 dependencies</span>
+        <span class="pill glass-inner">MIT</span>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/hungduong-projects/LiquidGlassUI">View on GitHub</a>
+          <a class="btn btn-ghost glass-inner" href="https://github.com/hungduong-projects/LiquidGlassUI/raw/main/index.html" download>Download the file</a>
+        </div>
+      </section>
+
+      <!-- Frame 2: WebGL liquid glass card -->
+      <div id="cardWrap">
+        <div id="card">
+          <h2>Liquid Glass</h2>
+          <p>This slab is a shader. Drop your own content in the div and the glass follows it.</p>
+          <div class="tile-row">
+            <div class="tile glass-inner"><div class="num">2</div><div class="lbl">Techniques</div></div>
+            <div class="tile glass-inner"><div class="num">1</div><div class="lbl">HTML file</div></div>
+            <div class="tile glass-inner"><div class="num">0</div><div class="lbl">Dependencies</div></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Frames 3 + 4: CSS component prototypes -->
+      <div class="stack">
+        <section id="player" class="glass">
+          <h2 class="frame-label">Media frame</h2>
+          <div class="row">
+            <div class="art"></div>
+            <div>
+              <div class="song">Glass Echoes</div>
+              <div class="artist">Aurora Noir</div>
+            </div>
+          </div>
+          <div class="bar glass-inner"><i></i></div>
+          <div class="pctl">
+            <button class="glass-inner" aria-label="Previous">⏮</button>
+            <button class="glass-inner" id="playBtn" aria-label="Play or pause">▶</button>
+            <button class="glass-inner" aria-label="Next">⏭</button>
+          </div>
+        </section>
+
+        <section id="controls" class="glass">
+          <h2 class="frame-label">Control frame</h2>
+          <div class="crow">
+            Wi-Fi
+            <button class="switch on" aria-label="Toggle Wi-Fi"></button>
+          </div>
+          <div class="crow">
+            Focus
+            <button class="switch" aria-label="Toggle Focus"></button>
+          </div>
+          <div class="crow" style="margin-bottom: 4px">Brightness</div>
+          <input type="range" min="0" max="100" value="72" aria-label="Brightness" />
+        </section>
+      </div>
+    </main>
+
+    <div id="toast" class="glass" role="note">
+      <span class="ticon" aria-hidden="true">◈</span>
+      <div><b>Every frame is a recipe.</b> Copy this file, keep the containers you need, delete the rest.</div>
+    </div>
+
+    <aside id="tuner" class="glass" aria-label="Glass tuning controls">
+      <h2 class="ctl-title">Tune the glass</h2>
+      <div class="ctl-group">Shader frame</div>
+      <label>Corners <input type="range" id="uExp" min="3.5" max="12" step="0.5" value="6" /></label>
+      <label>Lens <input type="range" id="uLens" min="0" max="0.45" step="0.01" value="0.22" /></label>
+      <label>Frost <input type="range" id="uBlur" min="0" max="3" step="0.1" value="1.2" /></label>
+      <label>Rim <input type="range" id="uRim" min="0" max="1" step="0.05" value="0.3" /></label>
+      <label>Milk <input type="range" id="uWhite" min="0" max="0.16" step="0.01" value="0.06" /></label>
+      <div class="ctl-group">Shape &amp; size</div>
+      <label>Width <input type="range" id="cardW" min="280" max="440" step="2" value="360" /></label>
+      <label>Height <input type="range" id="cardH" min="0" max="200" step="2" value="0" /></label>
+      <div class="ctl-group">CSS frames</div>
+      <label>Blur <input type="range" id="cssBlur" min="0" max="40" step="1" value="22" /></label>
+      <label>Tint <input type="range" id="cssFill" min="0" max="0.3" step="0.01" value="0.1" /></label>
+      <label>Edge <input type="range" id="cssEdge" min="0" max="0.8" step="0.02" value="0.3" /></label>
+      <label>Saturate <input type="range" id="cssSat" min="0.5" max="2.5" step="0.05" value="1.2" /></label>
+    </aside>
+
+    <script id="fragShader" type="x-shader/x-fragment">
+      precision mediump float;
+
+      uniform vec3 iResolution;
+      uniform vec2 uImgRes;
+      uniform vec2 uCardPos;    // card centre in gl pixels (y up)
+      uniform vec2 uCardHalf;   // half width / half height in pixels
+      uniform float uWhite;     // 0..0.16 milkiness
+      uniform float uExponent;  // superellipse exponent: higher = squarer corners
+      uniform float uLens;      // lens/refraction strength
+      uniform float uBlur;      // frost blur spread
+      uniform float uRim;       // rim brightness
+      uniform sampler2D iChannel0;
+
+      // cover-fit the backdrop image to the viewport
+      vec2 coverUv(vec2 uv) {
+        float ca = iResolution.x / iResolution.y;
+        float ia = uImgRes.x / uImgRes.y;
+        vec2 s = ca > ia ? vec2(1.0, ia / ca) : vec2(ca / ia, 1.0);
+        return (uv - 0.5) * s + 0.5;
+      }
+
+      void main() {
+        vec2 fragCoord = gl_FragCoord.xy;
+        vec2 uv = fragCoord / iResolution.xy;
+
+        vec2 d = (fragCoord - uCardPos) / uCardHalf;
+        float roundedBox = pow(abs(d.x), uExponent) + pow(abs(d.y), uExponent);
+
+        // rb1: soft interior mask, rb2: thin bright rim at the edge, rb3: outer falloff band
+        float rb1 = clamp((1.0 - roundedBox) * 8.0, 0.0, 1.0);
+        float rb2 = clamp((0.955 - roundedBox * 0.95) * 16.0, 0.0, 1.0) -
+                    clamp((0.91  - roundedBox * 0.95) * 16.0, 0.0, 1.0);
+        float rb3 = clamp((1.5 - roundedBox * 1.1) * 2.0, 0.0, 1.0) -
+                    clamp((1.0 - roundedBox * 1.1) * 2.0, 0.0, 1.0);
+
+        vec4 bg = texture2D(iChannel0, coverUv(uv));
+        float transition = smoothstep(0.0, 1.0, rb1 + rb2);
+        vec4 color = bg;
+
+        if (transition > 0.0) {
+          vec2 cuv = uCardPos / iResolution.xy;
+          // lens refraction: pull edge samples toward the centre
+          vec2 lens = cuv + (uv - cuv) * (1.0 - roundedBox * uLens);
+
+          // 9x9 box blur = frosting
+          vec4 acc = vec4(0.0);
+          float total = 0.0;
+          for (float x = -4.0; x <= 4.0; x++) {
+            for (float y = -4.0; y <= 4.0; y++) {
+              vec2 off = vec2(x, y) * uBlur / iResolution.xy;
+              acc += texture2D(iChannel0, coverUv(lens + off));
+              total += 1.0;
+            }
+          }
+          acc /= total;
+
+          // vertical light gradient + bright rim
+          float dy = uv.y - cuv.y;
+          float gradient = clamp((clamp(dy, 0.0, 0.2) + 0.1) / 2.0, 0.0, 1.0) +
+                           clamp((clamp(-dy, -1000.0, 0.2) * rb3 + 0.1) / 2.0, 0.0, 1.0);
+          vec4 lighting = clamp(acc + vec4(rb1) * gradient * 0.55 + vec4(rb2) * uRim, 0.0, 1.0);
+
+          lighting = mix(lighting, vec4(1.0), uWhite * 0.97);
+          color = mix(bg, lighting, transition);
+        }
+        gl_FragColor = vec4(color.rgb, 1.0);
+      }
+    </script>
+
+    <script>
+      /* =================== WebGL setup =================== */
+      const canvas = document.getElementById("glcanvas");
+      // preserveDrawingBuffer is required if you ever export the canvas to PNG
+      const gl = canvas.getContext("webgl", { preserveDrawingBuffer: true });
+      const card = document.getElementById("card");
+
+      function setCanvasSize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+      }
+      setCanvasSize();
+
+      const vsSource = `attribute vec2 position; void main(){ gl_Position = vec4(position, 0.0, 1.0); }`;
+      const fsSource = document.getElementById("fragShader").textContent;
+
+      function createShader(type, source) {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, source);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) {
+          console.error("Shader error:", gl.getShaderInfoLog(sh));
+          gl.deleteShader(sh);
+          return null;
+        }
+        return sh;
+      }
+      const program = gl.createProgram();
+      gl.attachShader(program, createShader(gl.VERTEX_SHADER, vsSource));
+      gl.attachShader(program, createShader(gl.FRAGMENT_SHADER, fsSource));
+      gl.linkProgram(program);
+      gl.useProgram(program);
+
+      const buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]),
+        gl.STATIC_DRAW,
+      );
+      const positionLoc = gl.getAttribLocation(program, "position");
+      gl.enableVertexAttribArray(positionLoc);
+      gl.vertexAttribPointer(positionLoc, 2, gl.FLOAT, false, 0, 0);
+
+      const U = {
+        resolution: gl.getUniformLocation(program, "iResolution"),
+        imgRes: gl.getUniformLocation(program, "uImgRes"),
+        cardPos: gl.getUniformLocation(program, "uCardPos"),
+        cardHalf: gl.getUniformLocation(program, "uCardHalf"),
+        white: gl.getUniformLocation(program, "uWhite"),
+        exponent: gl.getUniformLocation(program, "uExponent"),
+        lens: gl.getUniformLocation(program, "uLens"),
+        blur: gl.getUniformLocation(program, "uBlur"),
+        rim: gl.getUniformLocation(program, "uRim"),
+        texture: gl.getUniformLocation(program, "iChannel0"),
+      };
+
+      const texture = gl.createTexture();
+      let imgW = 1920,
+        imgH = 1200;
+
+      function uploadTexture(source, w, h) {
+        imgW = w;
+        imgH = h;
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      }
+
+      /* =================== Backdrop ===================
+         Dreamy procedural fallback: deep jewel base with diffused
+         pastel glows and bokeh. Used when bg.jpg is unavailable, so
+         the page still works offline. */
+      function dreamyBackground() {
+        const W = 1920, H = 1200;
+        const c = document.createElement("canvas");
+        c.width = W;
+        c.height = H;
+        const x = c.getContext("2d");
+
+        // deep jewel base: rich but dark enough to keep white glass + text legible
+        const base = x.createLinearGradient(0, 0, W, H);
+        base.addColorStop(0, "#10241f");   // deep emerald
+        base.addColorStop(0.5, "#1c2238"); // indigo
+        base.addColorStop(1, "#241a30");   // plum
+        x.fillStyle = base;
+        x.fillRect(0, 0, W, H);
+
+        // iridescent color wash: large saturated glows, heavily blurred, screen-blended
+        x.globalCompositeOperation = "screen";
+        x.filter = "blur(100px)";
+        const glows = [
+          // [cx, cy, rx, ry, rotation, color, alpha]
+          [320, 380, 760, 540, 0.2, "#2fd9a0", 0.5],   // emerald
+          [1520, 300, 780, 540, -0.2, "#ffb14d", 0.5], // amber gold
+          [1020, 1000, 840, 560, 0.1, "#ff5fa8", 0.46],// magenta
+          [300, 1000, 660, 480, -0.2, "#4dd0ff", 0.44],// cyan
+          [1720, 1060, 580, 440, 0.25, "#a06bff", 0.4],// violet
+          [960, 170, 720, 440, 0.0, "#ffd27a", 0.3],   // warm rim light
+        ];
+        for (const [cx, cy, rx, ry, rot, col, a] of glows) {
+          x.save();
+          x.translate(cx, cy);
+          x.rotate(rot);
+          x.scale(rx / 100, ry / 100);
+          const g = x.createRadialGradient(0, 0, 0, 0, 0, 100);
+          g.addColorStop(0, col + Math.round(a * 255).toString(16).padStart(2, "0"));
+          g.addColorStop(1, col + "00");
+          x.fillStyle = g;
+          x.fillRect(-100, -100, 200, 200);
+          x.restore();
+        }
+
+        // out-of-focus bokeh highlights for a dreamy photographic feel (no subject)
+        const palette = ["#2fd9a0", "#ffb14d", "#ff5fa8", "#4dd0ff", "#a06bff", "#ffd27a", "#ffffff"];
+        x.filter = "blur(22px)";
+        for (let i = 0; i < 46; i++) {
+          const bx = Math.random() * W,
+            by = Math.random() * H,
+            br = Math.random() * 70 + 24,
+            col = palette[(Math.random() * palette.length) | 0],
+            a = Math.random() * 0.16 + 0.06;
+          const g = x.createRadialGradient(bx, by, 0, bx, by, br);
+          g.addColorStop(0, col + Math.round(a * 255).toString(16).padStart(2, "0"));
+          g.addColorStop(0.7, col + Math.round(a * 0.5 * 255).toString(16).padStart(2, "0"));
+          g.addColorStop(1, col + "00");
+          x.fillStyle = g;
+          x.beginPath();
+          x.arc(bx, by, br, 0, Math.PI * 2);
+          x.fill();
+        }
+        x.filter = "none";
+
+        // gentle vignette to settle the edges (kept light, stays ethereal)
+        x.globalCompositeOperation = "source-over";
+        const v = x.createRadialGradient(W / 2, H / 2, H * 0.45, W / 2, H / 2, H * 1.05);
+        v.addColorStop(0, "rgba(12,14,24,0)");
+        v.addColorStop(1, "rgba(12,14,24,0.42)");
+        x.fillStyle = v;
+        x.fillRect(0, 0, W, H);
+
+        uploadTexture(c, W, H);
+      }
+
+      // Primary backdrop: dreamy image. Falls back to the procedural
+      // gradient if the image is missing (keeps the page working offline).
+      dreamyBackground();
+      const bgImg = new Image();
+      bgImg.onload = () => uploadTexture(bgImg, bgImg.naturalWidth, bgImg.naturalHeight);
+      bgImg.src = "bg.jpg";
+
+      /* =================== Frame tuner =================== */
+      const params = { uExp: 6, uLens: 0.22, uBlur: 1.2, uRim: 0.3, uWhite: 0.06 };
+      for (const id of Object.keys(params)) {
+        const el = document.getElementById(id);
+        el.addEventListener("input", () => { params[id] = parseFloat(el.value); });
+      }
+      // shape & size: resize the div, the shader follows it in real time
+      document.getElementById("cardW").addEventListener("input", (e) => {
+        card.style.width = e.target.value + "px";
+      });
+      let cardBaseH = null; // content height before any extra is applied
+      document.getElementById("cardH").addEventListener("input", (e) => {
+        if (cardBaseH === null) cardBaseH = card.offsetHeight;
+        const extra = parseFloat(e.target.value);
+        card.style.minHeight = extra > 0 ? cardBaseH + extra + "px" : "";
+      });
+      // CSS glass: live-update the tokens every .glass frame reads
+      const rootStyle = document.documentElement.style;
+      const bindToken = (id, prop, unit = "") =>
+        document.getElementById(id).addEventListener("input", (e) => {
+          rootStyle.setProperty(prop, e.target.value + unit);
+        });
+      bindToken("cssBlur", "--glass-blur", "px");
+      bindToken("cssFill", "--glass-fill-a");
+      bindToken("cssEdge", "--glass-edge-a");
+      bindToken("cssSat", "--glass-sat");
+
+      // Show a live value beside every tuner slider (generic, no per-row markup)
+      for (const inp of document.querySelectorAll('#tuner label input[type="range"]')) {
+        const out = document.createElement("output");
+        out.className = "val";
+        const sync = () => { out.textContent = inp.value; };
+        inp.addEventListener("input", sync);
+        inp.after(out);
+        sync();
+      }
+
+      /* =================== Prototype interactions =================== */
+      for (const sw of document.querySelectorAll(".switch")) {
+        sw.addEventListener("click", () => sw.classList.toggle("on"));
+      }
+      const playBtn = document.getElementById("playBtn");
+      playBtn.addEventListener("click", () => {
+        playBtn.textContent = playBtn.textContent === "▶" ? "⏸" : "▶";
+      });
+
+      /* =================== Render loop =================== */
+      let rafId = null;
+      function render() {
+        const rect = card.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = canvas.height - (rect.top + rect.height / 2); // gl y is flipped
+
+        gl.viewport(0, 0, canvas.width, canvas.height);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.uniform3f(U.resolution, canvas.width, canvas.height, 1.0);
+        gl.uniform2f(U.imgRes, imgW, imgH);
+        gl.uniform2f(U.cardPos, cx, cy);
+        gl.uniform2f(U.cardHalf, rect.width / 2 + 4, rect.height / 2 + 4);
+        gl.uniform1f(U.white, params.uWhite);
+        gl.uniform1f(U.exponent, params.uExp);
+        gl.uniform1f(U.lens, params.uLens);
+        gl.uniform1f(U.blur, params.uBlur);
+        gl.uniform1f(U.rim, params.uRim);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.uniform1i(U.texture, 0);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        rafId = requestAnimationFrame(render);
+      }
+
+      window.addEventListener("resize", setCanvasSize);
+
+      // Pause the shader loop while the tab is hidden (battery / GPU)
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          cancelAnimationFrame(rafId);
+        } else {
+          rafId = requestAnimationFrame(render);
+        }
+      });
+
+      /* init */
+      render();
+    </script>
+  </body>
+</html>

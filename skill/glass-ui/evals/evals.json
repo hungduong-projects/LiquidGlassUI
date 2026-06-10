@@ -1,0 +1,23 @@
+{
+  "skill_name": "glass-ui",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Build me a single self-contained HTML file with a music player card: frosted glass look over a colorful album-art style background, song title, artist, play/pause button, and a progress bar. I want it to look like Apple Music's glass widgets.",
+      "expected_output": "One HTML file; glass panel uses backdrop-filter blur with border + inset highlight over a rich backdrop; player controls present",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "I want a liquid glass profile card like the Apple visionOS style: the card should refract and warp the background at its edges like real thick glass, not just a CSS blur. Draggable on desktop, photo or rich gradient backdrop, one self-contained HTML file. Put a name, role, and 3 stat tiles on the card.",
+      "expected_output": "WebGL shader lens refraction (not plain backdrop-filter), draggable card div tracked by uniforms, content tiles in translucent ink style",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "make a login page for my side project, glassmorphism style. email + password inputs and a sign-in button sitting on a glass panel, over an animated colorful gradient background. self-contained html file please",
+      "expected_output": "Glass panel with backdrop-filter + edge border + inner highlight; inputs/buttons styled as inner translucent elements; animated gradient backdrop",
+      "files": []
+    }
+  ]
+}
